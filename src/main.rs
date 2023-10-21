@@ -1,34 +1,27 @@
-use std::{
-    io::{Read, Write},
-    net::{Shutdown, TcpListener, TcpStream},
-};
+use server::server::Server;
+use std::{io::Error, net::SocketAddr};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 mod coding;
 mod networking;
 mod server;
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => handle_client(stream),
-            Err(e) => {
-                eprintln!("Error accepting client connection: {}", e);
-            }
-        }
-    }
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let server = Server::new("127.0.0.1:7878").await?;
+    server.run().await;
+    Ok(())
 }
 
-fn handle_client(mut stream: TcpStream) {
-    stream.set_nodelay(true).expect("set_nodelay call failed");
+async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> Result<(), Error> {
+    stream.set_nodelay(true)?;
 
-    let addr = stream.peer_addr().unwrap();
     println!("Connection established with host: {}", addr);
 
     let mut buffer = [0; 50];
     loop {
-        match stream.read(&mut buffer) {
+        match stream.read(&mut buffer).await {
             Ok(n) => {
                 let data = String::from_utf8_lossy(&buffer[0..n]).trim().to_string();
 
@@ -37,14 +30,12 @@ fn handle_client(mut stream: TcpStream) {
 
                 stream
                     .write_all(format!("received: {}", data).as_bytes())
+                    .await
                     .expect("write_all call failed");
             }
             Err(e) => {
                 eprintln!("Error reading from socket: {}", e);
-                stream
-                    .shutdown(Shutdown::Both)
-                    .expect("shutdown call failed");
-                break;
+                stream.shutdown().await.expect("shutdown call failed");
             }
         }
     }

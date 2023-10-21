@@ -1,8 +1,6 @@
-use std::{
-    io::Error,
-    net::{SocketAddr, TcpStream},
-    time::Instant,
-};
+use std::{io::Error, net::SocketAddr, time::Instant};
+
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 // User represents a person that is connected to the server
 #[derive(Debug)]
@@ -43,30 +41,25 @@ pub enum UserState {
 
 impl User {
     /// Creates a new user for the given TcpStream, which is borrowed and owned by User
-    pub fn new(stream: TcpStream) -> Result<User, Error> {
-        let remote_addr = stream.peer_addr();
-        if remote_addr.is_err() {
-            return Err(remote_addr.unwrap_err());
-        }
-
+    pub fn new(stream: TcpStream, address: SocketAddr) -> Result<User, Error> {
         Ok(User {
             state: UserState::Handshake,
             stats: UserStats {
                 join_at: None,
                 last_interaction: None,
             },
-            address: remote_addr.unwrap(),
+            address,
             stream,
         })
     }
 
     /// Disconnects the user
-    pub fn disconnect(&mut self) -> Result<(), Error> {
+    pub async fn disconnect(&mut self) -> Result<(), Error> {
         if self.state != UserState::Join {
             return Ok(());
         }
 
-        let result = self.stream.shutdown(std::net::Shutdown::Both);
+        let result = self.stream.shutdown().await;
         match result {
             Ok(_) => {
                 self.state = UserState::Disconnect;

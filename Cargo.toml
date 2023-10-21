@@ -11,3 +11,7 @@ snafu = "0.7.5"
 [dependencies.uuid]
 version = "1.4.1"
 features = ["v4", "fast-rng", "macro-diagnostics"]
+
+[dependencies.tokio]
+version = "1.33.0"
+features = ["full"]
