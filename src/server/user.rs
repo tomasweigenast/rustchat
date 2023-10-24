@@ -1,6 +1,10 @@
 use std::{io::Error, net::SocketAddr, time::Instant};
 
-use tokio::{io::AsyncWriteExt, net::TcpStream};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+    sync::mpsc,
+};
 
 // User represents a person that is connected to the server
 #[derive(Debug)]
@@ -16,6 +20,8 @@ pub struct User {
 
     /// The read/write stream of the user
     stream: TcpStream,
+
+    tx: mpsc::Sender<Vec<u8>>,
 }
 
 #[derive(Debug)]
@@ -41,16 +47,44 @@ pub enum UserState {
 
 impl User {
     /// Creates a new user for the given TcpStream, which is borrowed and owned by User
-    pub fn new(stream: TcpStream, address: SocketAddr) -> Result<User, Error> {
+    pub fn new(
+        tx: mpsc::Sender<Vec<u8>>,
+        stream: TcpStream,
+        address: SocketAddr,
+    ) -> Result<Self, Error> {
         Ok(User {
             state: UserState::Handshake,
             stats: UserStats {
                 join_at: None,
                 last_interaction: None,
             },
+            tx,
             address,
             stream,
         })
+    }
+
+    pub async fn begin(&mut self) {
+        println!("Listening for user {:} messages", self.address);
+        let mut buffer = [0; 1024];
+        loop {
+            match self.stream.read(&mut buffer).await {
+                Ok(n) => {
+                    if n == 0 {
+                        // End of stream, the client has disconnected.
+                        break;
+                    }
+
+                    // let received_message =
+                    //     String::from_utf8_lossy(&buffer[0..n]).trim().to_string();
+                    self.tx
+                        .send(buffer.into())
+                        .await
+                        .expect("Message channel closed");
+                }
+                Err(err) => eprintln!("Failed to read from stream: {:}", err),
+            }
+        }
     }
 
     /// Disconnects the user

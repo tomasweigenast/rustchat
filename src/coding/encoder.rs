@@ -1,12 +1,11 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
+use super::{CONTINUE_BIT, SEGMENT_BITS};
+
 #[derive(Debug)]
 pub struct Encoder {
     buf: BytesMut,
 }
-
-const SEGMENT_BITS: u8 = 0x7F;
-const CONTINUE_BIT: u8 = 0x80;
 
 impl Encoder {
     pub fn new() -> Encoder {

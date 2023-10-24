@@ -6,6 +6,7 @@ use tokio::net::TcpStream;
 mod coding;
 mod networking;
 mod server;
+mod types;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
