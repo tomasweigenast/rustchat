@@ -6,9 +6,9 @@ use super::error::NetworkingError;
 
 #[derive(Debug)]
 pub struct Packet {
-    id: u8,
-    size: u64,
-    data: Bytes,
+    pub id: u8,
+    pub size: u64,
+    pub data: Bytes,
 }
 
 impl Packet {

@@ -1,10 +1,8 @@
-use std::{io::Error, net::SocketAddr, time::Instant};
+use std::time::Instant;
 
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-    sync::mpsc,
-};
+use crate::types::types;
+
+use super::connection::Connection;
 
 // User represents a person that is connected to the server
 #[derive(Debug)]
@@ -15,13 +13,8 @@ pub struct User {
     /// The stats of the user
     stats: UserStats,
 
-    /// The remote address of the user
-    address: SocketAddr,
-
     /// The read/write stream of the user
-    stream: TcpStream,
-
-    tx: mpsc::Sender<Vec<u8>>,
+    connection: Connection,
 }
 
 #[derive(Debug)]
@@ -46,61 +39,49 @@ pub enum UserState {
 }
 
 impl User {
-    /// Creates a new user for the given TcpStream, which is borrowed and owned by User
-    pub fn new(
-        tx: mpsc::Sender<Vec<u8>>,
-        stream: TcpStream,
-        address: SocketAddr,
-    ) -> Result<Self, Error> {
-        Ok(User {
+    /// Creates a new user for the given Connection, which is borrowed and owned by User
+    pub fn new(connection: Connection) -> Self {
+        User {
             state: UserState::Handshake,
             stats: UserStats {
                 join_at: None,
                 last_interaction: None,
             },
-            tx,
-            address,
-            stream,
-        })
+            connection,
+        }
     }
 
-    pub async fn begin(&mut self) {
-        println!("Listening for user {:} messages", self.address);
-        let mut buffer = [0; 1024];
-        loop {
-            match self.stream.read(&mut buffer).await {
-                Ok(n) => {
-                    if n == 0 {
-                        // End of stream, the client has disconnected.
-                        break;
-                    }
+    /// Process a single connection
+    pub async fn run(&mut self) -> types::Result<()> {
+        // while !self.shutdown.is_shutdown() {
+        let packet = tokio::select! {
+            res = self.connection.read_packet() => res?,
+            // _ = self.shutdown.recv() => {
+            //     // If a shutdown signal is received, return from `run`.
+            //     // This will result in the task terminating.
+            //     return Ok(());
+            // }
+        };
 
-                    // let received_message =
-                    //     String::from_utf8_lossy(&buffer[0..n]).trim().to_string();
-                    self.tx
-                        .send(buffer.into())
-                        .await
-                        .expect("Message channel closed");
-                }
-                Err(err) => eprintln!("Failed to read from stream: {:}", err),
-            }
-        }
+        println!("Received packet {:?} from {}", packet, self.connection.address);
+
+        Ok(())
     }
 
     /// Disconnects the user
-    pub async fn disconnect(&mut self) -> Result<(), Error> {
-        if self.state != UserState::Join {
-            return Ok(());
-        }
+    // pub async fn disconnect(&mut self) -> Result<(), Error> {
+    //     if self.state != UserState::Join {
+    //         return Ok(());
+    //     }
 
-        let result = self.stream.shutdown().await;
-        match result {
-            Ok(_) => {
-                self.state = UserState::Disconnect;
-                self.stats.last_interaction = Some(Instant::now());
-                return Ok(());
-            }
-            Err(_) => result,
-        }
-    }
+    //     let result = self.stream.shutdown().await;
+    //     match result {
+    //         Ok(_) => {
+    //             self.state = UserState::Disconnect;
+    //             self.stats.last_interaction = Some(Instant::now());
+    //             return Ok(());
+    //         }
+    //         Err(_) => result,
+    //     }
+    // }
 }

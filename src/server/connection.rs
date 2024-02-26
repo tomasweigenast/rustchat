@@ -1,21 +1,35 @@
-use bytes::BytesMut;
-use tokio::{io::AsyncReadExt, net::TcpStream};
+use std::net::SocketAddr;
 
-use crate::{networking::packet::Packet, types};
+use bytes::{BufMut, BytesMut};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt, BufWriter},
+    net::TcpStream,
+};
 
+use crate::{
+    coding::varint::{self},
+    networking::packet::Packet,
+    types,
+};
+
+#[derive(Debug)]
 pub struct Connection {
-    /// the outbound connection
-    pub stream: TcpStream,
+    /// The outbound connection
+    pub stream: BufWriter<TcpStream>,
 
-    /// a buffer used to store received packets
+    /// A buffer used to store received packets
     pub read_buffer: BytesMut,
+
+    /// The socket address
+    pub address: SocketAddr,
 }
 
 impl Connection {
-    pub fn new(stream: TcpStream) -> Self {
+    pub fn new(address: SocketAddr, stream: TcpStream) -> Self {
         Self {
+            address,
             read_buffer: BytesMut::with_capacity(1024 * 4),
-            stream,
+            stream: BufWriter::new(stream),
         }
     }
 
@@ -26,6 +40,20 @@ impl Connection {
         }
 
         return self.parse_packet().await;
+    }
+
+    pub async fn write_packet(&mut self, packet: Packet) -> types::Result<()> {
+        self.stream.write_u8(packet.id).await?;
+
+        let mut buffer = BytesMut::with_capacity(packet.size.try_into()?);
+        varint::write_varlong(packet.size.try_into()?, &mut buffer);
+        buffer.put(packet.data);
+
+        let mut freezed = buffer.freeze();
+        self.stream.write_buf(&mut freezed).await;
+
+        self.stream.flush().await?;
+        Ok(())
     }
 
     async fn parse_packet(&mut self) -> types::Result<Packet> {

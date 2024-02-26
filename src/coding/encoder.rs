@@ -1,6 +1,6 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
-use super::{CONTINUE_BIT, SEGMENT_BITS};
+use super::{varint, CONTINUE_BIT, SEGMENT_BITS};
 
 #[derive(Debug)]
 pub struct Encoder {
@@ -61,34 +61,6 @@ impl Encoder {
         self.buf.put_f64(value);
     }
 
-    pub fn write_varint(&mut self, value: i32) {
-        let mut n = value;
-
-        loop {
-            if n & (!SEGMENT_BITS as i32) == 0 {
-                self.buf.put_u8(n as u8);
-                return;
-            }
-
-            self.buf.put_u8((n as u8 & SEGMENT_BITS) | CONTINUE_BIT);
-            n >>= 7;
-        }
-    }
-
-    pub fn write_varlong(&mut self, value: i64) {
-        let mut n = value;
-
-        loop {
-            if n & (!SEGMENT_BITS as i64) == 0 {
-                self.buf.put_u8(n as u8);
-                return;
-            }
-
-            self.buf.put_u8((n as u8 & SEGMENT_BITS) | CONTINUE_BIT);
-            n >>= 7;
-        }
-    }
-
     pub fn write_string(&mut self, value: String) {
         let buffer = value.as_bytes();
         if buffer.len() > 32767 {
@@ -97,6 +69,14 @@ impl Encoder {
 
         self.write_varint(buffer.len() as i32);
         self.buf.put_slice(buffer);
+    }
+
+    pub fn write_varint(&mut self, value: i32) {
+        varint::write_varint(value, &mut self.buf)
+    }
+
+    pub fn write_varlong(&mut self, value: i64) {
+        varint::write_varlong(value, &mut self.buf)
     }
 
     pub fn take_bytes(self) -> Bytes {

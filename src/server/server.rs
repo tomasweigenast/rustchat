@@ -2,13 +2,12 @@ use std::{net::SocketAddr, sync::Arc};
 
 use tokio::{
     net::{TcpListener, TcpStream},
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        RwLock,
-    },
+    sync::RwLock,
 };
 
-use super::user::User;
+use crate::types::types::{self};
+
+use super::{connection::Connection, user::User};
 
 /// Server is meant to be a singleton that maintains the actual server state
 #[derive(Debug)]
@@ -17,6 +16,28 @@ pub struct Server {
 
     /// The list of clients in the server
     pub clients: Vec<Arc<RwLock<User>>>,
+}
+
+/// Run the server.
+pub async fn run(listener: TcpListener) {
+    let mut server = Server {
+        _listener: listener,
+        clients: vec![],
+    };
+
+    tokio::select! {
+        res = server.run() => {
+            // If an error is received here, accepting connections from the TCP
+            // listener failed multiple times and the server is giving up and
+            // shutting down.
+            //
+            // Errors encountered when handling individual connections do not
+            // bubble up to this point.
+            if let Err(err) = res {
+                println!("failed to accept, err {}", err);
+            }
+        }
+    }
 }
 
 impl Server {
@@ -29,58 +50,28 @@ impl Server {
         })
     }
 
-    pub async fn run(self) {
-        let sv = Arc::new(RwLock::new(self));
-        let (tx, mut rx) = mpsc::channel::<Vec<u8>>(32);
+    pub async fn run(&mut self) -> types::Result<()> {
+        loop {
+            let (socket, address) = self.accept().await?;
+            let mut client = User::new(Connection::new(socket, address));
 
-        // start task to listen for messages
-        // let sv_clone = sv.clone();
-        // tokio::spawn(async move {
-        //     sv_clone.write().await.handle_messages(&mut rx).await;
-        // });
-
-        // start listening for incoming connections
-        let sv_clone = sv.clone(); // Clone for reading outside the loop
-        tokio::spawn(async move {
-            let sv_reader = sv_clone.read().await;
-            while let Ok((stream, address)) = sv_reader._listener.accept().await {
-                let sv_clone = sv.clone(); // Clone for writing within the spawned task
-                let tx_clone = tx.clone();
-
-                tokio::spawn(async move {
-                    let mut sv_writer = sv_clone.write().await;
-                    sv_writer.handle_client(tx_clone, stream, address).await;
-                });
-            }
-        })
-        .await
-        .expect("error running main task");
-    }
-
-    async fn handle_messages(&mut self, rx: &mut Receiver<Vec<u8>>) {
-        while let Some(message) = rx.recv().await {
-            let pretty_msg = String::from_utf8(message).expect("not an string");
-
-            println!("Received message: {}", pretty_msg);
+            tokio::spawn(async move {
+                // TODO: If an error is encountered, log it.
+                // Process the connection.
+                client.run();
+            });
         }
     }
 
-    async fn handle_client(&mut self, tx: Sender<Vec<u8>>, stream: TcpStream, address: SocketAddr) {
-        println!("received new connection from {:}", address);
-
-        match stream.set_nodelay(true) {
-            Ok(_) => (),
-            Err(err) => eprintln!("set_nodelay call fail, error: {}", err),
-        }
-
-        // register the new client
-        match User::new(tx, stream, address) {
-            Ok(user) => {
-                let user_arc = Arc::new(RwLock::new(user));
-                self.clients.push(user_arc.clone());
-                user_arc.write().await.begin().await;
+    async fn accept(&mut self) -> types::Result<(SocketAddr, TcpStream)> {
+        // TODO: add backoff to try multiple times
+        loop {
+            match self._listener.accept().await {
+                Ok((socket, address)) => return Ok((address, socket)),
+                Err(err) => {
+                    return Err(err.into());
+                }
             }
-            Err(err) => eprintln!("new user call fail, error: {}", err),
         }
     }
 }
