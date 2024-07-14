@@ -21,9 +21,14 @@ pub fn write_varlong(value: i64, to: &mut BytesMut) {
     loop {
         if n & (!SEGMENT_BITS as i64) == 0 {
             to.put_u8(n as u8);
+            break; // Terminate the loop when condition is met
         }
 
         to.put_u8((n as u8 & SEGMENT_BITS) | CONTINUE_BIT);
         n >>= 7;
+
+        if n == 0 {
+            break; // Additional termination condition if n reaches zero
+        }
     }
 }

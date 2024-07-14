@@ -58,7 +58,7 @@ impl Server {
             tokio::spawn(async move {
                 // TODO: If an error is encountered, log it.
                 // Process the connection.
-                client.run();
+                client.run().await.unwrap();
             });
         }
     }

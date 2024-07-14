@@ -10,8 +10,9 @@ mod types;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let server = Server::new("127.0.0.1:7878").await?;
-    server.run().await;
+    let mut server = Server::new("127.0.0.1:7878").await?;
+    let _ = server.run().await;
+
     Ok(())
 }
 

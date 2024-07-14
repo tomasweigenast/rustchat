@@ -50,8 +50,7 @@ impl Connection {
         buffer.put(packet.data);
 
         let mut freezed = buffer.freeze();
-        self.stream.write_buf(&mut freezed).await;
-
+        self.stream.write_buf(&mut freezed).await?;
         self.stream.flush().await?;
         Ok(())
     }

@@ -54,6 +54,8 @@ impl User {
     /// Process a single connection
     pub async fn run(&mut self) -> types::Result<()> {
         // while !self.shutdown.is_shutdown() {
+
+        // here tokio::select! is used to await until self.connection.read_packet() OR self.shutdown.recv() completes
         let packet = tokio::select! {
             res = self.connection.read_packet() => res?,
             // _ = self.shutdown.recv() => {
@@ -63,12 +65,18 @@ impl User {
             // }
         };
 
-        println!("Received packet {:?} from {}", packet, self.connection.address);
+        println!(
+            "Received packet {:?} from {}",
+            packet, self.connection.address
+        );
+
+        self.connection.write_packet(packet).await.unwrap();
+        println!("Response sent.");
 
         Ok(())
     }
 
-    /// Disconnects the user
+    // Disconnects the user
     // pub async fn disconnect(&mut self) -> Result<(), Error> {
     //     if self.state != UserState::Join {
     //         return Ok(());
