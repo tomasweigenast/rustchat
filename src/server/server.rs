@@ -1,28 +1,23 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 
-use tokio::{
-    net::{TcpListener, TcpStream},
-    sync::RwLock,
+use bytes::BytesMut;
+use tokio::net::{TcpStream, UdpSocket};
+
+use crate::{
+    networking::packet::Packet,
+    types::types::{self},
 };
-
-use crate::types::types::{self};
-
-use super::{connection::Connection, user::User};
 
 /// Server is meant to be a singleton that maintains the actual server state
 #[derive(Debug)]
 pub struct Server {
-    _listener: TcpListener,
-
-    /// The list of clients in the server
-    pub clients: Vec<Arc<RwLock<User>>>,
+    _listener: UdpSocket,
 }
 
 /// Run the server.
-pub async fn run(listener: TcpListener) {
+pub async fn run(listener: UdpSocket) {
     let mut server = Server {
         _listener: listener,
-        clients: vec![],
     };
 
     tokio::select! {
@@ -42,36 +37,49 @@ pub async fn run(listener: TcpListener) {
 
 impl Server {
     pub async fn new(endpoint: &str) -> Result<Server, Box<dyn std::error::Error>> {
-        let listener = TcpListener::bind(endpoint).await?;
+        // create the UDP socket
+        let listener = UdpSocket::bind(endpoint).await?;
+        println!("UDP server started at {}", endpoint);
 
         Ok(Server {
-            _listener: listener,
-            clients: vec![],
+            _listener: listener, // now listener is owned by Server
         })
     }
 
     pub async fn run(&mut self) -> types::Result<()> {
+        let mut buf: [u8; 256] = [0; 256];
         loop {
-            let (socket, address) = self.accept().await?;
-            let mut client = User::new(Connection::new(socket, address));
+            let (len, addr) = self._listener.recv_from(&mut buf).await?;
+            println!("Received {} bytes from {}", len, addr);
+            let string_repre = String::from_utf8_lossy(&buf[..len]).to_string();
+            println!(
+                "Buffer: {:?} String representation: ({})",
+                &buf[..len],
+                string_repre
+            );
 
-            tokio::spawn(async move {
-                // TODO: If an error is encountered, log it.
-                // Process the connection.
-                client.run().await.unwrap();
-            });
+            // copy buffer
+            let mut buffer = BytesMut::with_capacity(256);
+            buffer.extend_from_slice(&buf);
+
+            // parse packet
+            let packet = Packet::from(&buffer).unwrap();
+
+            // answer with the same packet
+            self._listener.send_to(&packet.payload, addr).await?;
         }
     }
 
     async fn accept(&mut self) -> types::Result<(SocketAddr, TcpStream)> {
+        unimplemented!();
         // TODO: add backoff to try multiple times
-        loop {
-            match self._listener.accept().await {
-                Ok((socket, address)) => return Ok((address, socket)),
-                Err(err) => {
-                    return Err(err.into());
-                }
-            }
-        }
+        // loop {
+        //     match self._listener.accept().await {
+        //         Ok((socket, address)) => return Ok((address, socket)),
+        //         Err(err) => {
+        //             return Err(err.into());
+        //         }
+        //     }
+        // }
     }
 }

@@ -45,9 +45,9 @@ impl Connection {
     pub async fn write_packet(&mut self, packet: Packet) -> types::Result<()> {
         self.stream.write_u8(packet.id).await?;
 
-        let mut buffer = BytesMut::with_capacity(packet.size.try_into()?);
-        varint::write_varlong(packet.size.try_into()?, &mut buffer);
-        buffer.put(packet.data);
+        let mut buffer = BytesMut::with_capacity(packet.payload_size.try_into()?);
+        buffer.put_u16(packet.payload_size);
+        buffer.put(packet.payload);
 
         let mut freezed = buffer.freeze();
         self.stream.write_buf(&mut freezed).await?;
