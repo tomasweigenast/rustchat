@@ -13,6 +13,8 @@ The maximum size for a packet is 512 bytes, excluding the UDP header. Longer pac
 incoming IP may be blocked.
 
 The packet format is as follows:
+
+```plaintext
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |17 |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
@@ -24,3 +26,4 @@ The packet format is as follows:
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 | Message Content (variable) |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+```
