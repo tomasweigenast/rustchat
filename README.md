@@ -16,9 +16,9 @@ The packet format is as follows:
 
 ```plaintext
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|               1               |               2               |               3               |               4               |
+|               1               |               2               |               3               |               4               | *OCTECTS*
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |17 |18 |19 |20 |21 |22 |23 |24 |25 |26 |27 |28 |29 |30 |31 |
+| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |17 |18 |19 |20 |21 |22 |23 |24 |25 |26 |27 |28 |29 |30 |31 | *BITS*
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 |            Packet Id          |                           Payload Size                        | 0 | 0 | 0 | 0 | 0 | 0 |ENC|ACK|
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
@@ -32,7 +32,7 @@ The packet format is as follows:
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ```
 
-**Legend**
+**Fields Legend**
 
 - **Packet Id**: Contains the id of the packet type that is sent.
 - **Payload Size**: Indicates the size of the payload field.
@@ -42,6 +42,22 @@ The packet format is as follows:
 - **Seq/Ack Number**: The sequence number of the packet or the sequence number acked, if the ACK bit is set.
 - **MAC**: Carries the [MAC](https://en.wikipedia.org/wiki/Message_authentication_code) of the packet.
 - **Payload**: The actual payload of the packet. 
+
+### Data Types 
+| Data Type | Byte Length        | Encoding Format                              | Description                                                       |
+|-----------|--------------------|----------------------------------------------|-------------------------------------------------------------------|
+| string    | UTF-8 bytes length | String length as uint8 or uint16 + UTF-8 encoded data | The length of the string is encoded as a uint8 or uint16, depending on the string length, followed by the UTF-8 encoded string data. |
+| boolean   | 1 byte             | **0x01** for true, **0x00** for false                | Booleans are represented by a single byte: **0x01** for true and **0x00** for false. |
+| int8      | 1 byte             | Raw bytes                                    | 8-bit signed integer.                                             |
+| int16     | 2 bytes            | Raw bytes                                    | 16-bit signed integer, big-endian format.                      |
+| int32     | 4 bytes            | Raw bytes                                    | 32-bit signed integer, big-endian format.                      |
+| int64     | 8 bytes            | Raw bytes                                    | 64-bit signed integer, big-endian format.                      |
+| uint8     | 1 byte             | Raw bytes                                    | 8-bit unsigned integer.                                           |
+| uint16    | 2 bytes            | Raw bytes                                    | 16-bit unsigned integer, big-endian format.                    |
+| uint32    | 4 bytes            | Raw bytes                                    | 32-bit unsigned integer, big-endian format.                    |
+| uint64    | 8 bytes            | Raw bytes                                    | 64-bit unsigned integer, big-endian format.                    |
+| float32   | 4 bytes            | Raw bytes                                    | 32-bit floating point number (IEEE 754 standard), big-endian format. |
+| float64   | 8 bytes            | Raw bytes                                    | 64-bit floating point number (IEEE 754 standard), big-endian format. |
 
 
 ### Encryption
