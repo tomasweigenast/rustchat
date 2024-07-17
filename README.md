@@ -49,7 +49,7 @@ The packet format is as follows:
 ### Data Types 
 | Data Type | Byte Length        | Encoding Format                              | Description                                                       |
 |-----------|--------------------|----------------------------------------------|-------------------------------------------------------------------|
-| string    | UTF-8 bytes length | String length as uint8 or uint16 + UTF-8 encoded data | The length of the string is encoded as a uint8 or uint16, depending on the string length, followed by the UTF-8 encoded string data. |
+| string    | UTF-8 bytes length | String length as varint + UTF-8 encoded data | The length of the string is encoded as a varint, followed by the UTF-8 encoded string data. |
 | boolean   | 1 byte             | **0x01** for true, **0x00** for false                | Booleans are represented by a single byte: **0x01** for true and **0x00** for false. |
 | int8      | 1 byte             | Raw bytes                                    | 8-bit signed integer.                                             |
 | int16     | 2 bytes            | Raw bytes                                    | 16-bit signed integer, big-endian format.                      |
@@ -59,7 +59,7 @@ The packet format is as follows:
 | uint16    | 2 bytes            | Raw bytes                                    | 16-bit unsigned integer, big-endian format.                    |
 | uint32    | 4 bytes            | Raw bytes                                    | 32-bit unsigned integer, big-endian format.                    |
 | uint64    | 8 bytes            | Raw bytes                                    | 64-bit unsigned integer, big-endian format.                    |
-| varint    | up to 4 bytes            | Raw bytes                                    | A varying length, unsigned integer that is up to 4 bytes.                    |
+| varint    | up to 4 bytes            | Raw bytes                                    | A varying length, unsigned integer that is up to 4 bytes, big-endian format.                    |
 | float32   | 4 bytes            | Raw bytes                                    | 32-bit floating point number (IEEE 754 standard), big-endian format. |
 | float64   | 8 bytes            | Raw bytes                                    | 64-bit floating point number (IEEE 754 standard), big-endian format. |
 
