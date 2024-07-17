@@ -9,7 +9,7 @@ messages, because they are peer-to-peer encrypted, but works as a forwarder betw
 
 ### Packet format
 
-The maximum size for a packet is 576 bytes, excluding the UDP header. Longer packets will be dropped and the
+The maximum size for a packet is 876 bytes, excluding the UDP header. Longer packets will be dropped and the
 incoming IP may be blocked. The header has 12 bytes, so 564 bytes are available for the payload.
 
 The packet format is as follows:
@@ -20,9 +20,11 @@ The packet format is as follows:
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |17 |18 |19 |20 |21 |22 |23 |24 |25 |26 |27 |28 |29 |30 |31 | *BITS*
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|            Packet Id          |                           Payload Size                        | 0 | 0 | 0 | 0 | 0 | 0 |ENC|ACK|
+|         Packet Type Id        |                           Payload Size                        | 0 | 0 | 0 | 0 | 0 |FRG|ENC|ACK|
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|                                                          Seq/Ack Number                                                       |                   
+|                                                          Seq/Ack Number                                                       |
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+|            Packet Id          |                                                  RESERVED                                     |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 |                                                               MAC                                                             |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
@@ -34,11 +36,12 @@ The packet format is as follows:
 
 **Fields Legend**
 
-- **Packet Id**: Contains the id of the packet type that is sent.
+- **Packet Type Id**: Contains the id of the packet type that is sent.
 - **Payload Size**: Indicates the size of the payload field.
 - **Control Bits**:
   - **ACK**: Indicates if the packet carries an ACK.
   - **ENC**: Indicates if the packet payload is encrypted.
+  - **FRG**: Indicates if the packet is fragmented.
 - **Seq/Ack Number**: The sequence number of the packet or the sequence number acked, if the ACK bit is set.
 - **MAC**: Carries the [MAC](https://en.wikipedia.org/wiki/Message_authentication_code) of the packet.
 - **Payload**: The actual payload of the packet. 
@@ -56,6 +59,7 @@ The packet format is as follows:
 | uint16    | 2 bytes            | Raw bytes                                    | 16-bit unsigned integer, big-endian format.                    |
 | uint32    | 4 bytes            | Raw bytes                                    | 32-bit unsigned integer, big-endian format.                    |
 | uint64    | 8 bytes            | Raw bytes                                    | 64-bit unsigned integer, big-endian format.                    |
+| varint    | up to 4 bytes            | Raw bytes                                    | A varying length, unsigned integer that is up to 4 bytes.                    |
 | float32   | 4 bytes            | Raw bytes                                    | 32-bit floating point number (IEEE 754 standard), big-endian format. |
 | float64   | 8 bytes            | Raw bytes                                    | 64-bit floating point number (IEEE 754 standard), big-endian format. |
 
