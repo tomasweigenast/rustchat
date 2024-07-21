@@ -56,7 +56,7 @@ impl Connection {
     }
 
     async fn parse_packet(&mut self) -> types::Result<Packet> {
-        let buf = &self.read_buffer;
-        Packet::from(buf)
+        let buf = self.read_buffer.clone();
+        Packet::from(buf.freeze())
     }
 }

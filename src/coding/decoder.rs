@@ -2,7 +2,7 @@ use bytes::Buf;
 
 use crate::types::types;
 
-use super::{CONTINUE_BIT, SEGMENT_BITS};
+use super::varint::decode_varint32;
 
 /// This is simply a wrapper around a u8 slice to safely read data, and also add method to read varint and varlong
 #[derive(Debug)]
@@ -79,67 +79,36 @@ impl<'a> Decoder<'a> {
         Err("not enough data to get i64".into())
     }
 
-    pub fn read_varint(&mut self) -> types::Result<i32> {
-        let mut value: i32 = 0;
-        let mut pos = 0;
-        loop {
-            if !self.cursor.has_remaining() {
-                return Err("not enough data to get varint".into());
-            }
-
-            let byte = self.cursor.get_u8();
-            value |= ((byte & SEGMENT_BITS) as i32) << pos;
-
-            if byte & CONTINUE_BIT == 0 {
-                break;
-            }
-
-            pos += 7;
-            if pos >= 32 {
-                return Err("varint is too big".into());
-            }
-        }
-
-        return Ok(value);
-    }
-
-    pub fn read_varlong(&mut self) -> types::Result<i64> {
-        let mut value: i64 = 0;
-        let mut pos = 0;
-        loop {
-            if !self.cursor.has_remaining() {
-                return Err("not enough data to get varlong".into());
-            }
-
-            let byte = self.cursor.get_u8();
-            value |= ((byte & SEGMENT_BITS) as i64) << pos;
-
-            if byte & CONTINUE_BIT == 0 {
-                break;
-            }
-
-            pos += 7;
-            if pos >= 64 {
-                return Err("varlong is too big".into());
-            }
-        }
-
-        return Ok(value);
-    }
-
     pub fn read_string(&mut self) -> types::Result<String> {
         if !self.cursor.has_remaining() {
             return Err("not enough data to read string".into());
         }
 
-        let str_len = self.read_varint()? as usize;
-        if self.cursor.len() < str_len {
-            return Err("not enough data to read string, specified by varint".into());
+        if let Ok(str_len) = self.read_varint() {
+            let str_len = str_len as usize;
+            if self.cursor.len() < str_len {
+                return Err("not enough data to read string, specified by varint".into());
+            }
+
+            let slice = &self.cursor[..str_len];
+            let str = String::from_utf8(slice.into())?;
+            return Ok(str);
         }
 
-        let slice = &self.cursor[..str_len];
-        let str = String::from_utf8(slice.into())?;
-        return Ok(str);
+        Err("invalid string value".into())
+    }
+
+    pub fn read_varint(&mut self) -> types::Result<u32> {
+        if !self.cursor.has_remaining() {
+            return Err("not enough data to get varint".into());
+        }
+
+        if let Some((varint, len)) = decode_varint32(self.cursor) {
+            self.cursor.advance(len);
+            return Ok(varint);
+        }
+
+        Err("invalid varint value".into())
     }
 
     pub fn read_bool(&mut self) -> types::Result<bool> {

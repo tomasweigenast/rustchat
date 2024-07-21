@@ -1,10 +1,10 @@
 use std::net::SocketAddr;
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use tokio::net::{TcpStream, UdpSocket};
 
 use crate::{
-    networking::packet::Packet,
+    networking::packet::{Packet, MAX_PACKET_SIZE},
     types::types::{self},
 };
 
@@ -47,23 +47,19 @@ impl Server {
     }
 
     pub async fn run(&mut self) -> types::Result<()> {
-        let mut buf: [u8; 256] = [0; 256];
+        let mut buf = [0; MAX_PACKET_SIZE];
         loop {
             let (len, addr) = self._listener.recv_from(&mut buf).await?;
-            println!("Received {} bytes from {}", len, addr);
-            let string_repre = String::from_utf8_lossy(&buf[..len]).to_string();
-            println!(
-                "Buffer: {:?} String representation: ({})",
-                &buf[..len],
-                string_repre
-            );
 
             // copy buffer
-            let mut buffer = BytesMut::with_capacity(256);
-            buffer.extend_from_slice(&buf);
+            // let mut buffer = BytesMut::with_capacity(256);
+            // buffer.extend_from_slice(&buf);
 
             // parse packet
-            let packet = Packet::from(&buffer).unwrap();
+            let buffer = Bytes::copy_from_slice(&buf);
+            let packet = Packet::from(buffer).unwrap();
+
+            println!("{}", packet);
 
             // answer with the same packet
             self._listener.send_to(&packet.payload, addr).await?;

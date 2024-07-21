@@ -59,7 +59,7 @@ The packet format is as follows:
 | uint16    | 2 bytes            | Raw bytes                                    | 16-bit unsigned integer, big-endian format.                    |
 | uint32    | 4 bytes            | Raw bytes                                    | 32-bit unsigned integer, big-endian format.                    |
 | uint64    | 8 bytes            | Raw bytes                                    | 64-bit unsigned integer, big-endian format.                    |
-| varint    | up to 4 bytes            | Raw bytes                                    | A varying length, unsigned integer that is up to 4 bytes, big-endian format.                    |
+| varint    | up to 5 bytes            | Raw bytes                                    | A varying length, unsigned integer that is up to 5 bytes, big-endian format.                    |
 | float32   | 4 bytes            | Raw bytes                                    | 32-bit floating point number (IEEE 754 standard), big-endian format. |
 | float64   | 8 bytes            | Raw bytes                                    | 64-bit floating point number (IEEE 754 standard), big-endian format. |
 
