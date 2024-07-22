@@ -1,24 +1,16 @@
 use std::net::SocketAddr;
 
-use bytes::{BufMut, BytesMut};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, BufWriter},
-    net::TcpStream,
-};
+use futures::SinkExt;
+use tokio::net::TcpStream;
+use tokio_stream::StreamExt;
+use tokio_util::codec::*;
 
-use crate::{
-    coding::varint::{self},
-    networking::packet::Packet,
-    types,
-};
+use crate::{networking::packet::Packet, networking::packet::MAX_PACKET_SIZE, types};
 
 #[derive(Debug)]
 pub struct Connection {
     /// The outbound connection
-    pub stream: BufWriter<TcpStream>,
-
-    /// A buffer used to store received packets
-    pub read_buffer: BytesMut,
+    pub stream: Framed<TcpStream, LengthDelimitedCodec>,
 
     /// The socket address
     pub address: SocketAddr,
@@ -26,37 +18,33 @@ pub struct Connection {
 
 impl Connection {
     pub fn new(address: SocketAddr, stream: TcpStream) -> Self {
+        let transport = LengthDelimitedCodec::builder()
+            .big_endian()
+            .max_frame_length(MAX_PACKET_SIZE)
+            .length_field_type::<u32>()
+            .length_adjustment(0)
+            .length_field_offset(0)
+            .length_field_length(4)
+            .new_framed(stream);
+
         Self {
             address,
-            read_buffer: BytesMut::with_capacity(1024 * 4),
-            stream: BufWriter::new(stream),
+            stream: transport,
         }
     }
 
     pub async fn read_packet(&mut self) -> types::Result<Packet> {
-        let n: usize = self.stream.read_buf(&mut self.read_buffer).await?;
-        if n == 0 {
-            return Err("connection reset by peer".into());
+        let result: Option<bytes::BytesMut> = self.stream.try_next().await?;
+        if let Some(buffer) = result {
+            return Ok(Packet::from(buffer.freeze())?);
         }
 
-        return self.parse_packet().await;
+        Err("no data available".into())
     }
 
     pub async fn write_packet(&mut self, packet: Packet) -> types::Result<()> {
-        self.stream.write_u8(packet.id).await?;
-
-        let mut buffer = BytesMut::with_capacity(packet.size.try_into()?);
-        varint::write_varlong(packet.size.try_into()?, &mut buffer);
-        buffer.put(packet.data);
-
-        let mut freezed = buffer.freeze();
-        self.stream.write_buf(&mut freezed).await?;
-        self.stream.flush().await?;
+        let buffer = packet.encode();
+        self.stream.send(buffer).await?;
         Ok(())
-    }
-
-    async fn parse_packet(&mut self) -> types::Result<Packet> {
-        let buf = &self.read_buffer;
-        Packet::from(buf)
     }
 }

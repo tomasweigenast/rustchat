@@ -1,79 +1,132 @@
-use bytes::{Buf, Bytes, BytesMut};
+use std::{any::Any, fmt};
 
-use crate::{coding::Decoder, types};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use super::error::NetworkingError;
+use crate::{
+    coding::{Decoder, Encoder},
+    types,
+};
 
-#[derive(Debug)]
+use super::{error::NetworkingError, packet_type::PacketType};
+
+pub const MAX_PACKET_SIZE: usize = 1024 * 4; // 4 kB
+pub const PACKET_HEADER_SIZE: usize = 4 + 1 + 1;
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct Packet {
     pub id: u8,
-    pub size: u64,
-    pub data: Bytes,
+    pub control_bits: u8,
+    pub payload: Bytes,
 }
 
 impl Packet {
-    /// Creates a new Packet
-    pub fn new(id: u8, data: Bytes) -> Packet {
-        Packet {
+    /// Encodes this packet to a byte buffer
+    pub fn encode(&self) -> Bytes {
+        // Create a BytesMut buffer with the exact required capacity
+        let mut buffer = BytesMut::with_capacity(self.total_size());
+
+        // Write fields to the buffer
+        buffer.put_u8(self.id);
+        buffer.put_u8(self.control_bits);
+        buffer.put_slice(&self.payload);
+
+        // Convert BytesMut to Bytes for immutability
+        buffer.freeze()
+    }
+
+    /// Creates a new packet with the given payload.
+    pub fn new(id: u8, control_bits: u8, payload: Bytes) -> Self {
+        Self {
             id,
-            size: data.len() as u64,
-            data,
+            control_bits,
+            payload,
         }
     }
 
-    /// Creates a new packet from a BytesMut reference
-    pub fn from(buffer: &BytesMut) -> types::Result<Packet> {
+    /// Creates a new packet with the given packet_type.
+    pub fn new_from_type(control_bits: u8, packet_type: Box<dyn PacketType>) -> Self {
+        let mut encoder = Encoder::new();
+        packet_type.serialize(&mut encoder);
+
+        Self {
+            id: packet_type.packet_id(),
+            control_bits,
+            payload: encoder.take_bytes(),
+        }
+    }
+
+    /// Creates a new packet from Bytes, parsing the contents.
+    pub fn from(buffer: Bytes) -> types::Result<Packet> {
         if !buffer.has_remaining() {
             return Err(NetworkingError::InvalidPacketFormat.into());
         }
 
-        let buffer = buffer.chunk();
-        let mut decoder = Decoder::new(buffer);
-
-        // read packet id
-        let packet_id: u8 = decoder.read_u8()?;
-        let packet_size: u64 = decoder.read_varlong()?.try_into()?;
-
-        let data =
-            Bytes::copy_from_slice(&buffer[buffer.len() - decoder.remaining()..buffer.len()]);
+        let packet_id = buffer[0];
+        let control_bits = buffer[1];
+        let payload = &buffer[2..];
 
         Ok(Packet {
             id: packet_id,
-            size: packet_size,
-            data,
+            control_bits,
+            payload: Bytes::copy_from_slice(payload),
         })
+    }
+
+    /// Returns the total size of this packet, considering the payload.
+    pub fn total_size(&self) -> usize {
+        PACKET_HEADER_SIZE + self.payload.len()
+    }
+
+    /// Converts the packet payload to the given PacketType
+    pub fn receive_payload<T: PacketType>(&self, packet_type: &mut T) -> types::Result<()> {
+        let mut decoder = Decoder::new(&self.payload);
+        packet_type.deserialize(&mut decoder)?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for Packet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Packet\n")?;
+        write!(f, "    - Type Id: {}\n", self.id)?;
+        write!(f, "    - Payload Size: {}\n", self.payload.len())?;
+
+        write!(f, "    - Control bits: {:08b}\n", self.control_bits)?;
+
+        write!(f, "    - Payload: ")?;
+        for i in 0..std::cmp::min(50, self.payload.len()) {
+            write!(f, "{} ", self.payload[i])?;
+        }
+        write!(f, "\n")?;
+
+        write!(f, "    - String Payload: ")?;
+        let utf8_payload = std::str::from_utf8(&self.payload);
+        match utf8_payload {
+            Ok(s) => write!(f, "{}", s),
+            Err(_) => write!(f, "Unable to decode as UTF-8"),
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::coding::Encoder;
 
     use super::*;
 
     #[test]
-    fn packet_from() {
-        let mut encoder = Encoder::new();
-        encoder.write_ubyte(0x85);
-        encoder.write_varlong(255);
-        encoder.write_string("hola mundo".into());
-        let bytes = encoder.take_bytes();
+    fn packet_parse() {
+        let payload = Bytes::from("hello world!");
+        let packet1 = Packet {
+            id: 1,
+            control_bits: 0b0000_0010,
+            payload,
+        };
 
-        let mut buffer = BytesMut::new();
-        buffer.extend_from_slice(bytes.chunk());
-
-        let packet = Packet::from(&buffer);
-        if packet.is_err() {
-            println!("error: {}", packet.as_ref().unwrap_err());
-        }
+        let buffer = packet1.encode();
+        let packet = Packet::from(buffer.clone());
         assert!(packet.is_ok());
 
-        let packet = packet.unwrap();
-        assert_eq!(packet.id, 0x85);
-        assert_eq!(packet.size, 255);
-
-        let mut decoder = Decoder::new(&packet.data);
-        let value = decoder.read_string().expect("failed to read string");
-        assert_eq!(value, Bytes::from_static(b"hola mundo"));
+        let packet2 = packet.unwrap();
+        assert_eq!(packet1, packet2);
     }
 }

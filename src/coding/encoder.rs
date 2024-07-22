@@ -1,6 +1,6 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
-use super::{varint, CONTINUE_BIT, SEGMENT_BITS};
+use super::varint;
 
 #[derive(Debug)]
 pub struct Encoder {
@@ -67,16 +67,22 @@ impl Encoder {
             panic!("Maximum string length exceeded");
         }
 
-        self.write_varint(buffer.len() as i32);
+        self.write_varint(buffer.len() as u32);
         self.buf.put_slice(buffer);
     }
 
-    pub fn write_varint(&mut self, value: i32) {
-        varint::write_varint(value, &mut self.buf)
+    pub fn write_string_ref(&mut self, value: &String) {
+        let buffer = value.as_bytes();
+        if buffer.len() > 32767 {
+            panic!("Maximum string length exceeded");
+        }
+
+        self.write_varint(buffer.len() as u32);
+        self.buf.put_slice(buffer);
     }
 
-    pub fn write_varlong(&mut self, value: i64) {
-        varint::write_varlong(value, &mut self.buf)
+    pub fn write_varint(&mut self, value: u32) {
+        varint::encode_varint32(value, &mut self.buf);
     }
 
     pub fn take_bytes(self) -> Bytes {

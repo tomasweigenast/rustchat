@@ -1,6 +1,8 @@
 use std::time::Instant;
 
-use crate::types::types;
+use bytes::Bytes;
+
+use crate::{networking::packet::Packet, types::types};
 
 use super::connection::Connection;
 
@@ -55,25 +57,38 @@ impl User {
     pub async fn run(&mut self) -> types::Result<()> {
         // while !self.shutdown.is_shutdown() {
 
-        // here tokio::select! is used to await until self.connection.read_packet() OR self.shutdown.recv() completes
-        let packet = tokio::select! {
-            res = self.connection.read_packet() => res?,
-            // _ = self.shutdown.recv() => {
-            //     // If a shutdown signal is received, return from `run`.
-            //     // This will result in the task terminating.
-            //     return Ok(());
-            // }
-        };
+        loop {
+            // here tokio::select! is used to await until self.connection.read_packet() OR self.shutdown.recv() completes
+            let packet = tokio::select! {
+                res = self.connection.read_packet() => res,
+                // _ = self.shutdown.recv() => {
+                //     // If a shutdown signal is received, return from `run`.
+                //     // This will result in the task terminating.
+                //     return Ok(());
+                // }
+            };
 
-        println!(
-            "Received packet {:?} from {}",
-            packet, self.connection.address
-        );
+            match packet {
+                Ok(packet) => {
+                    println!(
+                        "Received packet [{}] from {}",
+                        packet, self.connection.address
+                    );
 
-        self.connection.write_packet(packet).await.unwrap();
-        println!("Response sent.");
+                    self.connection.write_packet(packet).await.unwrap();
+                    println!("Response sent.");
+                }
+                Err(err) => {
+                    println!("Failed to decode packet: {}", err);
 
-        Ok(())
+                    self.connection
+                        .write_packet(Packet::new(1, 0, Bytes::from("wrong packet")))
+                        .await
+                        .unwrap_or_default();
+                    println!("Response sent.");
+                }
+            }
+        }
     }
 
     // Disconnects the user

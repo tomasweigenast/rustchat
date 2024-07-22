@@ -5,7 +5,13 @@ edition = "2021"
 
 [dependencies]
 bytes = "1.5.0"
+futures = "0.3.30"
 snafu = "0.7.5"
+tokio-stream = "0.1.15"
+
+[dependencies.tokio-util]
+version = "0.7.11"
+features = ["codec"]
 
 [dependencies.uuid]
 version = "1.4.1"
