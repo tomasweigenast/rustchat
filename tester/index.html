@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Binary Message Example</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f4f4f4;
+      }
+      button {
+        padding: 10px 20px;
+        margin-top: 20px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      p {
+        font-size: 18px;
+      }
+      textarea {
+        width: 300px;
+        height: 100px;
+        margin-top: 20px;
+        font-size: 16px;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WebSocket Binary Message Example</h1>
+    <p id="status">Status: Not connected</p>
+
+    <!-- Textbox for custom message input -->
+    <textarea
+      id="messageInput"
+      placeholder="Enter your custom message here"
+    ></textarea>
+
+    <button onclick="sendMessage()">Send Message</button>
+
+    <script>
+      // WebSocket connection URL
+      const wsUrl = "ws://127.0.0.1:7878"; // Change this to your WebSocket server URL
+
+      // WebSocket variable
+      let socket;
+
+      // Connect to WebSocket server
+      function connectWebSocket() {
+        socket = new WebSocket(wsUrl);
+
+        socket.binaryType = "arraybuffer"; // Expect binary data
+
+        socket.onopen = () => {
+          document.getElementById("status").textContent = "Status: Connected";
+          console.log("WebSocket connected");
+        };
+
+        socket.onmessage = (event) => {
+          // Handle incoming messages here
+          console.log("Received:", new Uint8Array(event.data));
+        };
+
+        socket.onclose = () => {
+          document.getElementById("status").textContent =
+            "Status: Disconnected";
+          console.log("WebSocket disconnected");
+        };
+
+        socket.onerror = (error) => {
+          console.error("WebSocket Error: ", error);
+        };
+      }
+
+      // Send a binary message
+      function sendMessage() {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          alert("WebSocket is not connected.");
+          return;
+        }
+
+        const message = document.getElementById("messageInput").value.trim();
+
+        if (message === "") {
+          alert("Please enter a message.");
+          return;
+        }
+
+        const packet = createPacket(message);
+
+        socket.send(packet);
+        console.log("Sent:", packet);
+      }
+
+      // Create packet in the custom format
+      function createPacket(message) {
+        const type = 2; // Message type (PacketType.message)
+        const payload = new TextEncoder().encode(message);
+
+        const payloadSize = 1 + payload.length;
+        const buffer = new ArrayBuffer(5 + payload.length);
+        const byteArray = new Uint8Array(buffer);
+        const dataView = new DataView(buffer);
+
+        dataView.setUint32(0, payloadSize, false); // Big-endian format
+        byteArray[4] = type; // Packet type
+
+        byteArray.set(payload, 5); // Copy payload
+
+        return buffer;
+      }
+
+      // Initialize WebSocket connection
+      connectWebSocket();
+    </script>
+  </body>
+</html>

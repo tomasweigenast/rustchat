@@ -16,9 +16,9 @@ Future<void> main() async {
 
   socket.listen(_onMessage);
 
-  final packet = Packet.message(message: "hi");
-  print("Send packet: $packet");
-  socket.add(packet.encode());
+  // final packet = Packet.message(message: "hi");
+  // print("Send packet: $packet");
+  // socket.add(packet.encode());
   stdin.transform(utf8.decoder).listen((input) {
     final message = input.trim();
     if (message.isNotEmpty) {
@@ -31,6 +31,8 @@ Future<void> main() async {
       }
     }
   });
+
+  await socket.done;
 }
 
 void _onMessage(Uint8List buffer) {

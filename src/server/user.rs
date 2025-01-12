@@ -1,15 +1,13 @@
 use std::time::Instant;
 
 use bytes::Bytes;
-use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::{networking::packet::Packet, types::types};
 
-use super::connection::Connection;
+use super::connection::ConnectionHandle;
 
 // User represents a person that is connected to the server
-#[derive(Debug)]
-pub struct User<T: AsyncRead + AsyncWrite + Unpin> {
+pub struct User {
     /// The current state of the user
     state: UserState,
 
@@ -17,7 +15,7 @@ pub struct User<T: AsyncRead + AsyncWrite + Unpin> {
     stats: UserStats,
 
     /// The read/write stream of the user
-    connection: Connection<T>,
+    connection: Box<dyn ConnectionHandle + Send>,
 }
 
 #[derive(Debug)]
@@ -41,12 +39,9 @@ pub enum UserState {
     Disconnect,
 }
 
-impl<T> User<T>
-where
-    T: AsyncRead + AsyncWrite + Unpin,
-{
+impl User {
     /// Creates a new user for the given Connection, which is borrowed and owned by User
-    pub fn new(connection: Connection<T>) -> Self {
+    pub fn new(connection: Box<dyn ConnectionHandle + Send>) -> Self {
         User {
             state: UserState::Handshake,
             stats: UserStats {
@@ -76,7 +71,8 @@ where
                 Ok(packet) => {
                     println!(
                         "Received packet [{}] from {}",
-                        packet, self.connection.address
+                        packet,
+                        self.connection.socket()
                     );
 
                     // match packet.packet_type {
@@ -89,11 +85,15 @@ where
                 Err(err) => {
                     println!("Failed to decode packet: {}", err);
 
+                    // TODO: check kind of error before disconnecting
                     self.connection
                         .write_packet(Packet::new(1, Bytes::from("wrong packet")))
                         .await
                         .unwrap_or_default();
                     println!("Response sent.");
+
+                    // break the loop and return to the caller
+                    return Ok(());
                 }
             }
         }

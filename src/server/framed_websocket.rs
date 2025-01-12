@@ -8,6 +8,7 @@ use tokio::{
 };
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
+#[derive(Debug)]
 pub struct WebSocketAdapter {
     web_socket: WebSocketStream<TcpStream>,
 }
