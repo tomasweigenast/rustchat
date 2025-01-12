@@ -15,7 +15,7 @@ pub struct User {
     stats: UserStats,
 
     /// The read/write stream of the user
-    connection: Box<dyn ConnectionHandle + Send>,
+    connection: Box<dyn ConnectionHandle + Send + Sync>,
 }
 
 #[derive(Debug)]
@@ -41,7 +41,7 @@ pub enum UserState {
 
 impl User {
     /// Creates a new user for the given Connection, which is borrowed and owned by User
-    pub fn new(connection: Box<dyn ConnectionHandle + Send>) -> Self {
+    pub fn new(connection: Box<dyn ConnectionHandle + Send + Sync>) -> Self {
         User {
             state: UserState::Handshake,
             stats: UserStats {
