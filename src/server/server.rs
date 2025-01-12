@@ -1,11 +1,7 @@
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
-use tokio::{
-    net::{TcpListener, TcpStream},
-    sync::RwLock,
-    time::sleep,
-};
-use tokio_tungstenite::{accept_async, tungstenite::handshake::server};
+use tokio::{net::TcpListener, sync::RwLock, time::sleep};
+use tokio_tungstenite::accept_async;
 
 use crate::types::types::{self};
 
@@ -16,7 +12,7 @@ use super::{
 
 /// Server is meant to be a singleton that maintains the actual server state
 pub struct Server {
-    _listener: TcpListener,
+    listener: TcpListener,
     metadata: Arc<ServerMetadata>,
 }
 
@@ -30,7 +26,7 @@ impl Server {
         let listener = TcpListener::bind(endpoint).await?;
 
         Ok(Server {
-            _listener: listener,
+            listener,
             metadata: Arc::new(ServerMetadata {
                 clients: RwLock::new(HashMap::new()),
             }),
@@ -38,12 +34,12 @@ impl Server {
     }
 
     pub async fn run(&mut self) -> types::Result<()> {
-        println!("Running on {}", self._listener.local_addr().unwrap());
+        println!("Running on {}", self.listener.local_addr().unwrap());
         self.stats();
 
         loop {
             // accept tcp connection
-            let (stream, socket) = self._listener.accept().await?;
+            let (stream, socket) = self.listener.accept().await?;
 
             // determine the source of the connection
             let mut buf = [0; 3];
