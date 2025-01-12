@@ -75,6 +75,10 @@ impl User {
                         packet, self.connection.address
                     );
 
+                    // match packet.packet_type {
+                    //     _ => todo!(),
+                    // }
+
                     self.connection.write_packet(packet).await.unwrap();
                     println!("Response sent.");
                 }
@@ -82,7 +86,7 @@ impl User {
                     println!("Failed to decode packet: {}", err);
 
                     self.connection
-                        .write_packet(Packet::new(1, 0, Bytes::from("wrong packet")))
+                        .write_packet(Packet::new(1, Bytes::from("wrong packet")))
                         .await
                         .unwrap_or_default();
                     println!("Response sent.");

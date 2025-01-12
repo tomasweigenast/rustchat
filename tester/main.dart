@@ -16,12 +16,19 @@ Future<void> main() async {
 
   socket.listen(_onMessage);
 
+  final packet = Packet.message(message: "hi");
+  print("Send packet: $packet");
+  socket.add(packet.encode());
   stdin.transform(utf8.decoder).listen((input) {
     final message = input.trim();
     if (message.isNotEmpty) {
-      final packet = createPacket(message);
-      print("Going to send: $packet");
-      socket.add(packet);
+      try {
+        final packet = Packet.message(message: message);
+        print("Send packet: $packet");
+        socket.add(packet.encode());
+      } catch (err) {
+        print(err);
+      }
     }
   });
 }
@@ -30,28 +37,38 @@ void _onMessage(Uint8List buffer) {
   print("Message received: $buffer");
 }
 
-const kMaxPacketSize = 576;
-Uint8List createPacket(String content) {
-  final payload = utf8.encode(content);
-  final payloadSize = 2 + payload.lengthInBytes;
+const kMaxPacketSize = 1024 * 1024 * 12;
 
-  final builder = BytesBuilder(copy: false);
+class Packet {
+  final PacketType type;
+  final Uint8List payload;
 
-  // payload size
-  builder.add(Uint8List(4)..buffer.asByteData().setUint32(0, payloadSize, Endian.big));
+  const Packet({required this.type, required this.payload});
 
-  // packet id
-  builder.addByte(1);
-
-  // control bits
-  builder.addByte(0);
-
-  // payload
-  builder.add(payload);
-
-  if (builder.length > kMaxPacketSize) {
-    throw "Message too big.";
+  factory Packet.message({required String message}) {
+    return Packet(type: PacketType.message, payload: utf8.encode(message));
   }
 
-  return builder.toBytes();
+  Uint8List encode() {
+    final payloadSize = 1 + payload.lengthInBytes;
+    final buffer = Uint8List(5 + payload.lengthInBytes);
+
+    final byteData = ByteData.sublistView(buffer);
+    byteData.setUint32(0, payloadSize, Endian.big);
+
+    buffer[4] = type.index;
+
+    buffer.setRange(5, buffer.lengthInBytes, payload);
+
+    if (buffer.lengthInBytes > kMaxPacketSize) {
+      throw "Message too big.";
+    }
+
+    return buffer;
+  }
+
+  @override
+  String toString() => "Packet(type: $type, payload: ${payload.sublist(0, min(20, payload.length - 1))})";
 }
+
+enum PacketType { unknown, signIn, signOut, message }

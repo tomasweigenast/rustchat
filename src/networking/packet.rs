@@ -1,4 +1,4 @@
-use std::{any::Any, fmt};
+use std::fmt;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
@@ -9,13 +9,12 @@ use crate::{
 
 use super::{error::NetworkingError, packet_type::PacketType};
 
-pub const MAX_PACKET_SIZE: usize = 1024 * 4; // 4 kB
-pub const PACKET_HEADER_SIZE: usize = 4 + 1 + 1;
+// pub const PACKET_HEADER_SIZE: usize = 4 + 1 + 1;
+pub const MAX_PACKET_SIZE: usize = 1024 * 1024 * 12; // 12 mB
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Packet {
-    pub id: u8,
-    pub control_bits: u8,
+    pub packet_type: u8,
     pub payload: Bytes,
 }
 
@@ -23,11 +22,10 @@ impl Packet {
     /// Encodes this packet to a byte buffer
     pub fn encode(&self) -> Bytes {
         // Create a BytesMut buffer with the exact required capacity
-        let mut buffer = BytesMut::with_capacity(self.total_size());
+        let mut buffer = BytesMut::with_capacity(1 + self.payload.len());
 
         // Write fields to the buffer
-        buffer.put_u8(self.id);
-        buffer.put_u8(self.control_bits);
+        buffer.put_u8(self.packet_type);
         buffer.put_slice(&self.payload);
 
         // Convert BytesMut to Bytes for immutability
@@ -35,22 +33,20 @@ impl Packet {
     }
 
     /// Creates a new packet with the given payload.
-    pub fn new(id: u8, control_bits: u8, payload: Bytes) -> Self {
+    pub fn new(packet_type: u8, payload: Bytes) -> Self {
         Self {
-            id,
-            control_bits,
+            packet_type,
             payload,
         }
     }
 
     /// Creates a new packet with the given packet_type.
-    pub fn new_from_type(control_bits: u8, packet_type: Box<dyn PacketType>) -> Self {
+    pub fn new_from_type(packet_type: Box<dyn PacketType>) -> Self {
         let mut encoder = Encoder::new();
         packet_type.serialize(&mut encoder);
 
         Self {
-            id: packet_type.packet_id(),
-            control_bits,
+            packet_type: packet_type.packet_id(),
             payload: encoder.take_bytes(),
         }
     }
@@ -61,21 +57,19 @@ impl Packet {
             return Err(NetworkingError::InvalidPacketFormat.into());
         }
 
-        let packet_id = buffer[0];
-        let control_bits = buffer[1];
-        let payload = &buffer[2..];
+        let packet_type = buffer[0];
+        let payload = &buffer[1..];
 
         Ok(Packet {
-            id: packet_id,
-            control_bits,
+            packet_type,
             payload: Bytes::copy_from_slice(payload),
         })
     }
 
     /// Returns the total size of this packet, considering the payload.
-    pub fn total_size(&self) -> usize {
-        PACKET_HEADER_SIZE + self.payload.len()
-    }
+    // pub fn total_size(&self) -> usize {
+    //     PACKET_HEADER_SIZE + self.payload.len()
+    // }
 
     /// Converts the packet payload to the given PacketType
     pub fn receive_payload<T: PacketType>(&self, packet_type: &mut T) -> types::Result<()> {
@@ -88,10 +82,8 @@ impl Packet {
 impl fmt::Display for Packet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Packet\n")?;
-        write!(f, "    - Type Id: {}\n", self.id)?;
+        write!(f, "    - Packet Type: {}\n", self.packet_type)?;
         write!(f, "    - Payload Size: {}\n", self.payload.len())?;
-
-        write!(f, "    - Control bits: {:08b}\n", self.control_bits)?;
 
         write!(f, "    - Payload: ")?;
         for i in 0..std::cmp::min(50, self.payload.len()) {
@@ -117,8 +109,7 @@ mod test {
     fn packet_parse() {
         let payload = Bytes::from("hello world!");
         let packet1 = Packet {
-            id: 1,
-            control_bits: 0b0000_0010,
+            packet_type: 1,
             payload,
         };
 

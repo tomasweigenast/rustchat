@@ -21,43 +21,53 @@ impl Encoder {
         }
     }
 
-    pub fn write_sbyte(&mut self, value: i8) {
+    #[inline]
+    pub fn write_i8(&mut self, value: i8) {
         self.buf.put_i8(value)
     }
 
-    pub fn write_ubyte(&mut self, value: u8) {
+    #[inline]
+    pub fn write_u8(&mut self, value: u8) {
         self.buf.put_u8(value)
     }
 
-    pub fn write_sshort(&mut self, value: i16) {
+    #[inline]
+    pub fn write_i16(&mut self, value: i16) {
         self.buf.put_i16(value);
     }
 
-    pub fn write_ushort(&mut self, value: u16) {
+    #[inline]
+    pub fn write_u16(&mut self, value: u16) {
         self.buf.put_u16(value);
     }
 
-    pub fn write_sint(&mut self, value: i32) {
+    #[inline]
+    pub fn write_i32(&mut self, value: i32) {
         self.buf.put_i32(value);
     }
 
-    pub fn write_uint(&mut self, value: u32) {
+    #[inline]
+    pub fn write_u32(&mut self, value: u32) {
         self.buf.put_u32(value);
     }
 
-    pub fn write_slong(&mut self, value: i64) {
+    #[inline]
+    pub fn write_i64(&mut self, value: i64) {
         self.buf.put_i64(value);
     }
 
-    pub fn write_ulong(&mut self, value: u64) {
+    #[inline]
+    pub fn write_u64(&mut self, value: u64) {
         self.buf.put_u64(value);
     }
 
-    pub fn write_float(&mut self, value: f32) {
+    #[inline]
+    pub fn write_f32(&mut self, value: f32) {
         self.buf.put_f32(value);
     }
 
-    pub fn write_double(&mut self, value: f64) {
+    #[inline]
+    pub fn write_f64(&mut self, value: f64) {
         self.buf.put_f64(value);
     }
 
@@ -83,6 +93,11 @@ impl Encoder {
 
     pub fn write_varint(&mut self, value: u32) {
         varint::encode_varint32(value, &mut self.buf);
+    }
+
+    pub fn write_bytes(&mut self, value: &Bytes) {
+        self.write_varint(value.len() as u32);
+        self.buf.put_slice(value);
     }
 
     pub fn take_bytes(self) -> Bytes {

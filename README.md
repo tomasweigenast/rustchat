@@ -1,31 +1,25 @@
 # rustchat
 
-A chat server made in Rust that communicates using an underlying Onion network.
+## Communication Protocol
+Peers connect to the server, which acts as a relay redirecting messages to the users. This allows a little bit of security
+because users won't known the IP address of their peers. 
 
-## Connection with peers
-
-The server uses UDP for transmitting data, as Onion is by nature an insecure network. The server doesn't store
-messages, because they are peer-to-peer encrypted, but works as a forwarder between clients.
-
-### Packet format
-
-The maximum size for a packet is 576 bytes, excluding the UDP header. Longer packets will be dropped and the
-incoming IP may be blocked. The header has 12 bytes, so 564 bytes are available for the payload.
-
-The packet format is as follows:
-
-```plaintext
+### Packet Format
+The size of the packet is not restricted when using TCP as connection. A TCP packet looks like this:
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 |               1               |               2               |               3               |               4               |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |17 |18 |19 |20 |21 |22 |23 |24 |25 |26 |27 |28 |29 |30 |31 |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|                                                           Payload Size                                                        |
-+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|            Packet Id          |           Control Bits        |                               Payload...                      |
+|          Message Type         |                            Payload...                                                         |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 |                                                           ...Payload                                                          |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 |                                                                ...                                                            |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-```
+
+## TO-DO
+[] - QUIC connection protocol
+[] - Custom connection protocol based on UDP
+[] - TOR connection protocol
+

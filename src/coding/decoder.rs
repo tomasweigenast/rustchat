@@ -1,4 +1,4 @@
-use bytes::Buf;
+use bytes::{Buf, Bytes};
 
 use crate::types::types;
 
@@ -77,6 +77,25 @@ impl<'a> Decoder<'a> {
         }
 
         Err("not enough data to get i64".into())
+    }
+
+    pub fn read_bytes(&mut self) -> types::Result<Bytes> {
+        if !self.cursor.has_remaining() {
+            return Err("not enough data to read bytes".into());
+        }
+
+        if let Ok(bytes_len) = self.read_varint() {
+            let bytes_len = bytes_len as usize;
+            if self.cursor.len() < bytes_len {
+                return Err("not enough data to read bytes, specified by varint".into());
+            }
+
+            let slice = &self.cursor[..bytes_len];
+            let buffer = Bytes::copy_from_slice(slice);
+            return Ok(buffer);
+        }
+
+        Err("invalid bytes value".into())
     }
 
     pub fn read_string(&mut self) -> types::Result<String> {
