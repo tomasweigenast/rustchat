@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use bytes::Bytes;
+use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::{networking::packet::Packet, types::types};
 
@@ -8,7 +9,7 @@ use super::connection::Connection;
 
 // User represents a person that is connected to the server
 #[derive(Debug)]
-pub struct User {
+pub struct User<T: AsyncRead + AsyncWrite + Unpin> {
     /// The current state of the user
     state: UserState,
 
@@ -16,7 +17,7 @@ pub struct User {
     stats: UserStats,
 
     /// The read/write stream of the user
-    connection: Connection,
+    connection: Connection<T>,
 }
 
 #[derive(Debug)]
@@ -40,9 +41,12 @@ pub enum UserState {
     Disconnect,
 }
 
-impl User {
+impl<T> User<T>
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+{
     /// Creates a new user for the given Connection, which is borrowed and owned by User
-    pub fn new(connection: Connection) -> Self {
+    pub fn new(connection: Connection<T>) -> Self {
         User {
             state: UserState::Handshake,
             stats: UserStats {

@@ -1,13 +1,18 @@
 use std::{net::SocketAddr, sync::Arc};
 
+use futures::StreamExt;
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::RwLock,
 };
+use tokio_tungstenite::accept_async;
 
 use crate::types::types::{self};
 
-use super::{connection::Connection, user::User};
+use super::{
+    connection::{Connection, ConnectionHandle},
+    user::User,
+};
 
 /// Server is meant to be a singleton that maintains the actual server state
 #[derive(Debug)]
@@ -54,14 +59,50 @@ impl Server {
         println!("Running on {}", self._listener.local_addr().unwrap());
 
         loop {
-            let (socket, address) = self.accept().await?;
-            let mut client = User::new(Connection::new(socket, address));
+            let (socket, stream) = self.accept().await?;
+            self.handle_connection(socket, stream).await?;
 
-            tokio::spawn(async move {
-                // TODO: If an error is encountered, log it.
-                // Process the connection.
-                client.run().await.unwrap();
-            });
+            // let mut client = User::new(Connection::new(socket, stream));
+
+            // tokio::spawn(async move {
+            //     // TODO: If an error is encountered, log it.
+            //     // Process the connection.
+            //     client.run().await.unwrap();
+            // });
+        }
+    }
+
+    pub async fn handle_connection(
+        &mut self,
+        socket: SocketAddr,
+        stream: TcpStream,
+    ) -> types::Result<Box<dyn ConnectionHandle>> {
+        let mut buf = [0; 4];
+
+        // Peek first 4 bytes to check if its a GET (websocket connection)
+        let is_websocket: bool = match stream.peek(&mut buf).await {
+            Ok(read) => {
+                read >= 4 && &buf[..4] == b"GET"
+                // This is a websocket connection
+
+                // if let Ok(ws) = accept_async(stream).await {
+                //     // let connection = Connection::from_websocket(socket, ws);
+                //     return true
+                // } else {
+                //     // invalid websocket handshake, drop the connection
+                //     return false
+                // }
+
+                // false
+            }
+            Err(_) => false,
+        };
+
+        if is_websocket {
+            Ok(Box::new(Connection::from_tcp(socket, stream)))
+        } else {
+            let ws = accept_async(stream).await?;
+            Ok(Box::new(Connection::from_websocket(socket, ws)))
         }
     }
 
