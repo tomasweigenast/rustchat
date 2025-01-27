@@ -14,7 +14,7 @@ pub const SIGN_OUT: u8 = 2;
 /// A message from an user
 pub const MESSAGE: u8 = 3;
 
-pub trait PacketType: Send {
+pub trait PacketData: Send {
     fn packet_id(&self) -> u8;
     fn deserialize(&mut self, data: &mut Decoder) -> Result<()>;
     fn serialize(&self, encoder: &mut Encoder);
@@ -26,7 +26,7 @@ pub struct LoginPacket {
     password: String,
 }
 
-impl PacketType for LoginPacket {
+impl PacketData for LoginPacket {
     fn deserialize(&mut self, data: &mut Decoder) -> Result<()> {
         self.username = data.read_string()?;
         self.password = data.read_string()?;
@@ -48,7 +48,7 @@ pub struct LogoutPacket {
     session_id: i64,
 }
 
-impl PacketType for LogoutPacket {
+impl PacketData for LogoutPacket {
     fn deserialize(&mut self, data: &mut Decoder) -> Result<()> {
         self.session_id = data.read_i64()?;
         Ok(())
@@ -63,7 +63,7 @@ impl PacketType for LogoutPacket {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct MessagePacket {
     /// The id of the destination. Can be an individual user or a channel
     pub destination: i32,
@@ -75,7 +75,7 @@ pub struct MessagePacket {
     pub message_payload: MessagePayload,
 }
 
-impl PacketType for MessagePacket {
+impl PacketData for MessagePacket {
     fn deserialize(&mut self, data: &mut Decoder) -> Result<()> {
         self.destination = data.read_i32()?;
         self.destination_type = DestinationType::from(data.read_u8()?);
@@ -108,6 +108,7 @@ impl PacketType for MessagePacket {
                 encoder.write_i8(2);
                 encoder.write_bytes(buffer);
             }
+            MessagePayload::Invalid => todo!(),
         }
     }
 

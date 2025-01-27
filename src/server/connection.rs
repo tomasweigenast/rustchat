@@ -7,14 +7,14 @@ use tokio_stream::StreamExt;
 use tokio_tungstenite::WebSocketStream;
 use tokio_util::codec::*;
 
-use crate::{networking::packet::Packet, networking::packet::MAX_PACKET_SIZE, types};
+use crate::{networking::raw_packet::RawPacket, networking::raw_packet::MAX_PACKET_SIZE, types};
 
 use super::framed_websocket::WebSocketAdapter;
 
 #[async_trait]
 pub trait ConnectionHandle {
-    async fn read_packet(&mut self) -> types::Result<Packet>;
-    async fn write_packet(&mut self, packet: Packet) -> types::Result<()>;
+    async fn read_packet(&mut self) -> types::Result<RawPacket>;
+    async fn write_packet(&mut self, packet: RawPacket) -> types::Result<()>;
     fn socket(&self) -> SocketAddr;
 }
 
@@ -44,16 +44,16 @@ impl TcpConnection {
 
 #[async_trait]
 impl ConnectionHandle for TcpConnection {
-    async fn read_packet(&mut self) -> types::Result<Packet> {
+    async fn read_packet(&mut self) -> types::Result<RawPacket> {
         let result: Option<bytes::BytesMut> = self.stream.try_next().await?;
         if let Some(buffer) = result {
-            return Ok(Packet::from(buffer.freeze())?);
+            return Ok(RawPacket::decode(buffer.freeze())?);
         }
 
         Err("no data available".into())
     }
 
-    async fn write_packet(&mut self, packet: Packet) -> types::Result<()> {
+    async fn write_packet(&mut self, packet: RawPacket) -> types::Result<()> {
         let buffer = packet.encode();
         self.stream.send(buffer).await?;
         Ok(())
@@ -91,16 +91,16 @@ impl WebSocketConnection {
 
 #[async_trait]
 impl ConnectionHandle for WebSocketConnection {
-    async fn read_packet(&mut self) -> types::Result<Packet> {
+    async fn read_packet(&mut self) -> types::Result<RawPacket> {
         let result: Option<bytes::BytesMut> = self.stream.try_next().await?;
         if let Some(buffer) = result {
-            return Ok(Packet::from(buffer.freeze())?);
+            return Ok(RawPacket::from(buffer.freeze())?);
         }
 
         Err("no data available".into())
     }
 
-    async fn write_packet(&mut self, packet: Packet) -> types::Result<()> {
+    async fn write_packet(&mut self, packet: RawPacket) -> types::Result<()> {
         let buffer = packet.encode();
         self.stream.send(buffer).await?;
         Ok(())

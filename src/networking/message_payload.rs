@@ -1,16 +1,19 @@
 use bytes::Bytes;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub enum MessagePayload {
+    #[default]
+    Invalid,
     Text(String),
     File(Bytes),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub enum DestinationType {
+    #[default]
+    Unknown,
     User,
     Channel,
-    Unknown,
 }
 
 impl DestinationType {

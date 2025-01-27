@@ -1,6 +1,7 @@
 use server::server::Server;
 
 mod coding;
+mod database;
 mod networking;
 mod server;
 mod types;

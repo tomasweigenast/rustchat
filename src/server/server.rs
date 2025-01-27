@@ -1,24 +1,24 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use tokio::{net::TcpListener, sync::RwLock, time::sleep};
+use tokio::{
+    net::{unix::uid_t, TcpListener},
+    sync::RwLock,
+    time::sleep,
+};
 use tokio_tungstenite::accept_async;
 
 use crate::types::types::{self};
 
 use super::{
     connection::{ConnectionHandle, TcpConnection, WebSocketConnection},
+    database::Database,
     user::User,
 };
 
 /// Server is meant to be a singleton that maintains the actual server state
 pub struct Server {
     listener: TcpListener,
-    metadata: Arc<ServerMetadata>,
-}
-
-pub struct ServerMetadata {
-    /// The list of clients in the server
-    pub clients: RwLock<HashMap<SocketAddr, Arc<RwLock<User>>>>,
+    db: Arc<Database>,
 }
 
 impl Server {
@@ -27,9 +27,7 @@ impl Server {
 
         Ok(Server {
             listener,
-            metadata: Arc::new(ServerMetadata {
-                clients: RwLock::new(HashMap::new()),
-            }),
+            db: Arc::new(Database::new()),
         })
     }
 
@@ -70,11 +68,13 @@ impl Server {
 
             // create a client and spawn a new task to handle it
             println!("Client connected from {}", socket);
-            let client = Arc::new(RwLock::new(User::new(connection_handle)));
-            self.metadata.add_client(socket, client.clone()).await;
+            let user = User::new(connection_handle);
+            let uid = &user.id();
+            let client = Arc::new(RwLock::new(user));
+            self.db.add_client(uid, client.clone()).await;
 
             // Clone server metadata to give it to the tokio task
-            let server_metadata = self.metadata.clone();
+            let db = self.db.clone();
             tokio::spawn(async move {
                 // TODO: If an error is encountered, log it.
 
@@ -85,33 +85,20 @@ impl Server {
                 }
 
                 println!("Client {} disconnected.", socket);
-                server_metadata.remove_client(&socket).await;
+                db.remove_client(&client.id()).await;
             });
         }
     }
 
     pub fn stats(&self) {
-        let server_metadata = self.metadata.clone();
+        let db = self.db.clone();
         tokio::spawn(async move {
             loop {
                 sleep(Duration::from_secs(10)).await;
                 println!("---------- Server Stats ----------");
-                println!(
-                    "Connected users: {}",
-                    server_metadata.clients.read().await.len()
-                );
+                println!("Connected users: {}", db.total_clients().await);
                 println!("----------------------------------");
             }
         });
-    }
-}
-
-impl ServerMetadata {
-    async fn add_client(self: &Arc<Self>, socket: SocketAddr, user: Arc<RwLock<User>>) {
-        self.clients.write().await.insert(socket, user);
-    }
-
-    async fn remove_client(self: &Arc<Self>, socket: &SocketAddr) {
-        self.clients.write().await.remove(socket);
     }
 }
